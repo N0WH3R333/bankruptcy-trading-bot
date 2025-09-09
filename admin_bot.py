@@ -25,15 +25,11 @@ class AdminBot:
     def __init__(self):
         self.db_manager = DatabaseManager()
         self.ai_service = AIService(self.db_manager)
-        # Временно разрешаем всем пользователям доступ для тестирования
-        # self.admin_users = [123456789]  # Добавьте сюда ID админов (замените на ваш реальный ID)
-        self.admin_users = []  # Пустой список = доступ для всех
+        # Список ID администраторов
+        self.admin_users = [1621867102]  # Ваш Telegram ID
         
     def is_admin(self, user_id: int) -> bool:
         """Проверка, является ли пользователь админом"""
-        # Временно разрешаем всем пользователям доступ для тестирования
-        if not self.admin_users:  # Если список пустой
-            return True
         return user_id in self.admin_users
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -246,6 +242,24 @@ class AdminBot:
         # Запускаем бота
         logger.info("Админ-бот запущен")
         application.run_polling(allowed_updates=Update.ALL_TYPES)
+    
+    async def run_async(self):
+        """Асинхронный запуск админ-бота"""
+        # Создаем приложение
+        application = Application.builder().token(ADMIN_BOT_TOKEN).build()
+        
+        # Добавляем обработчики
+        application.add_handler(CommandHandler("start", self.start_command))
+        application.add_handler(CallbackQueryHandler(self.stats_callback, pattern="stats"))
+        application.add_handler(CallbackQueryHandler(self.users_callback, pattern="users"))
+        application.add_handler(CallbackQueryHandler(self.popular_questions_callback, pattern="popular_questions"))
+        application.add_handler(CallbackQueryHandler(self.channel_stats_callback, pattern="channel_stats"))
+        application.add_handler(CallbackQueryHandler(self.refresh_cache_callback, pattern="refresh_cache"))
+        application.add_handler(CallbackQueryHandler(self.back_to_menu_callback, pattern="back_to_menu"))
+        
+        # Запускаем бота
+        logger.info("Админ-бот запущен")
+        await application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     admin_bot = AdminBot()

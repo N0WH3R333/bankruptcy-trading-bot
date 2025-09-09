@@ -1,0 +1,23 @@
+[Unit]
+Description=Bankruptcy Trading Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/bankruptcy-bot
+ExecStart=/root/bankruptcy-bot/venv/bin/python /root/bankruptcy-bot/launch_bots.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Переменные окружения
+Environment=PYTHONPATH=/root/bankruptcy-bot
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+
+

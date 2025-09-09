@@ -39,7 +39,6 @@ class TradingBot:
         keyboard = [
             [InlineKeyboardButton("🤖 Ответы на вопросы", callback_data="ask_question")],
             [InlineKeyboardButton("📚 База знаний", callback_data="knowledge_base")],
-            [InlineKeyboardButton("🎓 Обучение торгам", callback_data="training")],
             [InlineKeyboardButton("👨‍💼 Связаться со специалистом", callback_data="contact_specialist")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -66,7 +65,6 @@ class TradingBot:
 
 🤖 Ответы на вопросы - задайте вопрос по торгам по банкротству
 📚 База знаний - перейти в канал с полезной информацией
-🎓 Обучение торгам - получить контакты для обучения
 👨‍💼 Связаться со специалистом - контакты наших экспертов
 
 Команды:
@@ -131,23 +129,29 @@ class TradingBot:
             # Логируем переход в канал
             self.db_manager.log_channel_visit(user_id)
             
+            # Создаем кнопку для перехода в канал по ID
+            keyboard = [
+                [InlineKeyboardButton("📚 Перейти в канал", url=f"https://t.me/c/{KNOWLEDGE_CHANNEL_ID[4:]}")],
+                [InlineKeyboardButton("🔙 Назад в меню", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
             await query.edit_message_text(
-                f"📚 Переходите в наш канал с базой знаний:\n\n"
-                f"🔗 @{KNOWLEDGE_CHANNEL_ID}\n\n"
+                f"📚 Наш канал с базой знаний:\n\n"
                 f"Там вы найдете:\n"
                 f"• Актуальную информацию о торгах\n"
                 f"• Полезные статьи и гайды\n"
                 f"• Новости законодательства\n"
-                f"• Примеры успешных торгов"
+                f"• Примеры успешных торгов\n\n"
+                f"Нажмите кнопку ниже, чтобы перейти в канал:",
+                reply_markup=reply_markup
             )
             
         elif query.data == "training":
             await query.edit_message_text(
                 f"🎓 Обучение торгам по банкротству:\n\n"
                 f"📞 Телефон: {TRAINING_CONTACTS['phone']}\n"
-                f"💬 Telegram: {TRAINING_CONTACTS['telegram']}\n"
-                f"📧 Email: {TRAINING_CONTACTS['email']}\n"
-                f"🌐 Сайт: {TRAINING_CONTACTS['website']}\n\n"
+                f"💬 Telegram: {TRAINING_CONTACTS['telegram']}\n\n"
                 f"Наши курсы включают:\n"
                 f"• Основы торгов по банкротству\n"
                 f"• Анализ лотов и рисков\n"
@@ -160,9 +164,7 @@ class TradingBot:
             await query.edit_message_text(
                 f"👨‍💼 Связаться со специалистом:\n\n"
                 f"📞 Телефон: {SPECIALIST_CONTACTS['phone']}\n"
-                f"💬 Telegram: {SPECIALIST_CONTACTS['telegram']}\n"
-                f"📧 Email: {SPECIALIST_CONTACTS['email']}\n"
-                f"🌐 Сайт: {SPECIALIST_CONTACTS['website']}\n\n"
+                f"💬 Telegram: {SPECIALIST_CONTACTS['telegram']}\n\n"
                 f"Наши эксперты помогут:\n"
                 f"• Выбрать подходящий лот\n"
                 f"• Подготовить документы\n"
@@ -185,6 +187,9 @@ class TradingBot:
         
         # Увеличиваем счетчик запросов
         self.db_manager.increment_user_requests(user_id)
+        
+        # Планируем автосообщения только при первом вопросе пользователя
+        self._schedule_follow_up_messages(user_id)
         
         # Проверяем длину сообщения
         if len(message_text) > MAX_MESSAGE_LENGTH:
@@ -246,7 +251,6 @@ class TradingBot:
         keyboard = [
             [InlineKeyboardButton("🤖 Ответы на вопросы", callback_data="ask_question")],
             [InlineKeyboardButton("📚 База знаний", callback_data="knowledge_base")],
-            [InlineKeyboardButton("🎓 Обучение торгам", callback_data="training")],
             [InlineKeyboardButton("👨‍💼 Связаться со специалистом", callback_data="contact_specialist")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -255,6 +259,36 @@ class TradingBot:
             "🏛️ Главное меню бота по торгам по банкротству\n\nВыберите нужную функцию:",
             reply_markup=reply_markup
         )
+    
+    def _schedule_follow_up_messages(self, user_id: int):
+        """Планирование автосообщений для пользователя"""
+        try:
+            # Исключаем админа из автосообщений
+            if user_id == 1621867102:
+                logger.info(f"Пользователь {user_id} - админ, автосообщения не планируются")
+                return
+            
+            # Проверяем, не отправлялись ли уже автосообщения в последние 14 дней
+            if self.db_manager.has_recent_auto_messages(user_id, days=14):
+                logger.info(f"Пользователю {user_id} уже отправлялись автосообщения в последние 14 дней")
+                return
+            
+            # Проверяем, не планировались ли уже автосообщения для этого пользователя
+            if (self.db_manager.has_auto_message_scheduled(user_id, '1hour') or 
+                self.db_manager.has_auto_message_scheduled(user_id, '3days')):
+                logger.info(f"Автосообщения для пользователя {user_id} уже запланированы")
+                return
+            
+            # Планируем сообщение через час
+            self.db_manager.schedule_auto_message(user_id, '1hour', 1)
+            logger.info(f"Запланировано автосообщение через час для пользователя {user_id}")
+            
+            # Планируем сообщение через 3 дня
+            self.db_manager.schedule_auto_message(user_id, '3days', 72)  # 72 часа = 3 дня
+            logger.info(f"Запланировано автосообщение через 3 дня для пользователя {user_id}")
+                
+        except Exception as e:
+            logger.error(f"Ошибка планирования автосообщений: {e}")
     
     def run(self):
         """Запуск бота"""
@@ -273,6 +307,24 @@ class TradingBot:
         # Запускаем бота
         logger.info("Бот запущен")
         application.run_polling(allowed_updates=Update.ALL_TYPES)
+    
+    async def run_async(self):
+        """Асинхронный запуск бота"""
+        # Создаем приложение
+        application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+        
+        # Добавляем обработчики
+        application.add_handler(CommandHandler("start", self.start_command))
+        application.add_handler(CommandHandler("help", self.help_command))
+        application.add_handler(CommandHandler("stats", self.stats_command))
+        # Сначала специфичные обработчики, потом общий
+        application.add_handler(CallbackQueryHandler(self.main_menu_callback, pattern="main_menu"))
+        application.add_handler(CallbackQueryHandler(self.button_callback))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+        
+        # Запускаем бота
+        logger.info("Бот запущен")
+        await application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     bot = TradingBot()

@@ -25,6 +25,7 @@ class BotManager:
     def __init__(self):
         self.main_bot_process = None
         self.admin_bot_process = None
+        self.auto_messenger_process = None
         self.running = False
         
     def check_dependencies(self):
@@ -76,13 +77,25 @@ class BotManager:
             logger.error(f"Ошибка запуска админ-бота: {e}")
             print(f"❌ Ошибка запуска админ-бота: {e}")
     
+    def run_auto_messenger(self):
+        """Запуск планировщика автосообщений"""
+        try:
+            logger.info("Запуск планировщика автосообщений...")
+            from auto_messenger import AutoMessenger
+            messenger = AutoMessenger()
+            asyncio.run(messenger.run_scheduler())
+        except Exception as e:
+            logger.error(f"Ошибка запуска планировщика автосообщений: {e}")
+            print(f"❌ Ошибка запуска планировщика автосообщений: {e}")
+    
     def monitor_bots(self):
         """Мониторинг состояния ботов"""
         while self.running:
             try:
-                # Проверяем, что оба потока живы
+                # Проверяем, что все потоки живы
                 main_alive = self.main_bot_thread.is_alive() if hasattr(self, 'main_bot_thread') else False
                 admin_alive = self.admin_bot_thread.is_alive() if hasattr(self, 'admin_bot_thread') else False
+                messenger_alive = self.auto_messenger_thread.is_alive() if hasattr(self, 'auto_messenger_thread') else False
                 
                 if not main_alive:
                     logger.warning("Основной бот остановился, перезапускаем...")
@@ -93,6 +106,11 @@ class BotManager:
                     logger.warning("Админ-бот остановился, перезапускаем...")
                     self.admin_bot_thread = threading.Thread(target=self.run_admin_bot, daemon=True)
                     self.admin_bot_thread.start()
+                
+                if not messenger_alive:
+                    logger.warning("Планировщик автосообщений остановился, перезапускаем...")
+                    self.auto_messenger_thread = threading.Thread(target=self.run_auto_messenger, daemon=True)
+                    self.auto_messenger_thread.start()
                 
                 time.sleep(30)  # Проверяем каждые 30 секунд
                 
@@ -138,16 +156,25 @@ class BotManager:
         self.admin_bot_thread = threading.Thread(target=self.run_admin_bot, daemon=True)
         self.admin_bot_thread.start()
         
+        # Небольшая задержка
+        time.sleep(2)
+        
+        # Запускаем планировщик автосообщений
+        self.auto_messenger_thread = threading.Thread(target=self.run_auto_messenger, daemon=True)
+        self.auto_messenger_thread.start()
+        
         # Запускаем мониторинг
         monitor_thread = threading.Thread(target=self.monitor_bots, daemon=True)
         monitor_thread.start()
         
-        print("✅ Оба бота запущены!")
+        print("✅ Все боты запущены!")
         print("📊 Логи записываются в директорию: logs/")
         print("   - Основной бот: logs/main_bot.log")
         print("   - Админ-бот: logs/admin_bot.log")
+        print("   - Планировщик автосообщений: logs/auto_messenger.log")
         print("   - Запуск: logs/bot_launcher.log")
         print("🔄 Мониторинг активен (автоперезапуск при сбоях)")
+        print("📨 Автосообщения: через 1 час и 3 дня после вопросов")
         print("⏹️  Для остановки нажмите Ctrl+C")
         print("=" * 50)
         

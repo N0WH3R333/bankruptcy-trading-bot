@@ -93,6 +93,20 @@ class DatabaseManager:
                     )
                 ''')
                 
+                # Таблица для отслеживания автосообщений
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS auto_messages (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        user_id INTEGER,
+                        message_type TEXT,  -- '1hour' или '3days'
+                        scheduled_time TIMESTAMP,
+                        sent BOOLEAN DEFAULT FALSE,
+                        sent_at TIMESTAMP,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users (user_id)
+                    )
+                ''')
+                
                 conn.commit()
                 logger.info("База данных инициализирована успешно")
                 
@@ -281,3 +295,79 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Ошибка получения кэшированного FAQ: {e}")
             return None
+    
+    def schedule_auto_message(self, user_id: int, message_type: str, delay_hours: int):
+        """Планирование автосообщения"""
+        try:
+            from datetime import datetime, timedelta
+            scheduled_time = datetime.now() + timedelta(hours=delay_hours)
+            
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO auto_messages (user_id, message_type, scheduled_time)
+                    VALUES (?, ?, ?)
+                ''', (user_id, message_type, scheduled_time))
+                conn.commit()
+                logger.info(f"Запланировано автосообщение для пользователя {user_id}, тип: {message_type}")
+        except Exception as e:
+            logger.error(f"Ошибка планирования автосообщения: {e}")
+    
+    def get_pending_auto_messages(self) -> List[Tuple]:
+        """Получение запланированных автосообщений, которые нужно отправить"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, user_id, message_type, scheduled_time
+                    FROM auto_messages 
+                    WHERE sent = FALSE AND scheduled_time <= datetime('now')
+                    ORDER BY scheduled_time ASC
+                ''')
+                return cursor.fetchall()
+        except Exception as e:
+            logger.error(f"Ошибка получения запланированных автосообщений: {e}")
+            return []
+    
+    def mark_auto_message_sent(self, message_id: int):
+        """Отметка автосообщения как отправленного"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE auto_messages 
+                    SET sent = TRUE, sent_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                ''', (message_id,))
+                conn.commit()
+        except Exception as e:
+            logger.error(f"Ошибка отметки автосообщения как отправленного: {e}")
+    
+    def has_auto_message_scheduled(self, user_id: int, message_type: str) -> bool:
+        """Проверка, запланировано ли уже автосообщение данного типа для пользователя"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT COUNT(*) FROM auto_messages 
+                    WHERE user_id = ? AND message_type = ? AND sent = FALSE
+                ''', (user_id, message_type))
+                return cursor.fetchone()[0] > 0
+        except Exception as e:
+            logger.error(f"Ошибка проверки запланированных автосообщений: {e}")
+            return False
+    
+    def has_recent_auto_messages(self, user_id: int, days: int = 14) -> bool:
+        """Проверка, отправлялись ли автосообщения пользователю в последние N дней"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT COUNT(*) FROM auto_messages 
+                    WHERE user_id = ? AND sent = TRUE 
+                    AND sent_at >= datetime('now', '-{} days')
+                '''.format(days), (user_id,))
+                return cursor.fetchone()[0] > 0
+        except Exception as e:
+            logger.error(f"Ошибка проверки недавних автосообщений: {e}")
+            return False
