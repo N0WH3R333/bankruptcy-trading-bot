@@ -13,7 +13,15 @@ from telegram.ext import (
     filters, 
     ContextTypes
 )
-from config import TELEGRAM_BOT_TOKEN, KNOWLEDGE_CHANNEL_ID, SPECIALIST_CONTACTS, TRAINING_CONTACTS, MAX_MESSAGE_LENGTH
+from config import TELEGRAM_BOT_TOKEN, SPECIALIST_CONTACTS, TRAINING_CONTACTS, MAX_MESSAGE_LENGTH
+import os
+from dotenv import load_dotenv
+
+# Загружаем переменные окружения
+load_dotenv()
+
+# Получаем ID канала из переменных окружения (как в рабочем боте)
+KNOWLEDGE_CHANNEL_ID = os.getenv("GROUP_ID_KNOWLEDGE")
 from database import DatabaseManager
 from ai_service import AIService
 
@@ -144,10 +152,9 @@ class TradingBot:
                 # Ждем немного для отображения сообщения
                 await asyncio.sleep(1)
                 
-                # Используем правильный формат для ID канала
-                # Для канала с ID -1002574409421 правильный формат: https://t.me/c/2574409421
-                channel_id = KNOWLEDGE_CHANNEL_ID[4:]  # Убираем -100
-                channel_url = f"https://t.me/c/{channel_id}"
+                # Используем тот же подход, что и в рабочем боте
+                # Отправляем пользователя прямо в канал по ID
+                channel_url = f"https://t.me/c/{KNOWLEDGE_CHANNEL_ID[4:]}"
                 
                 # Отправляем сообщение с кнопкой для перехода в канал
                 await context.bot.send_message(
