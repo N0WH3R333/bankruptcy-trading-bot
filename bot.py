@@ -129,37 +129,29 @@ class TradingBot:
             # Логируем переход в канал
             self.db_manager.log_channel_visit(user_id)
             
-            # Создаем кнопку для перехода в канал
-            # Используем универсальный формат ссылки для мобильных и десктопных устройств
+            # Создаем кнопки для перехода в канал
+            # Используем разные форматы для мобильных и десктопных устройств
             if KNOWLEDGE_CHANNEL_ID.startswith('@'):
                 # Если это username канала
                 channel_url = f"https://t.me/{KNOWLEDGE_CHANNEL_ID[1:]}"
+                mobile_url = f"tg://resolve?domain={KNOWLEDGE_CHANNEL_ID[1:]}"
             elif KNOWLEDGE_CHANNEL_ID.startswith('-100'):
                 # Если это ID канала (формат -100xxxxxxxxx)
                 channel_id = KNOWLEDGE_CHANNEL_ID[4:]  # Убираем -100
                 channel_url = f"https://t.me/c/{channel_id}"
+                mobile_url = f"tg://resolve?domain=c/{channel_id}"
             else:
                 # Если это обычный ID канала
                 channel_url = f"https://t.me/c/{KNOWLEDGE_CHANNEL_ID}"
+                mobile_url = f"tg://resolve?domain=c/{KNOWLEDGE_CHANNEL_ID}"
             
             # Создаем кнопки для перехода в канал
             keyboard = [
-                [InlineKeyboardButton("📚 Перейти в канал", url=channel_url)]
+                [InlineKeyboardButton("📚 Перейти в канал", url=channel_url)],
+                [InlineKeyboardButton("📱 Открыть в приложении", url=mobile_url)],
+                [InlineKeyboardButton("🔙 Назад в меню", callback_data="main_menu")]
             ]
-            
-            # Добавляем альтернативную кнопку, если это username канала
-            if KNOWLEDGE_CHANNEL_ID.startswith('@'):
-                keyboard.append([InlineKeyboardButton("📱 Альтернативная ссылка", url=f"https://t.me/{KNOWLEDGE_CHANNEL_ID[1:]}")])
-            
-            keyboard.append([InlineKeyboardButton("🔙 Назад в меню", callback_data="main_menu")])
             reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            # Формируем текст с инструкциями
-            channel_info = ""
-            if KNOWLEDGE_CHANNEL_ID.startswith('@'):
-                channel_info = f"\n\n💡 Если кнопка не работает, найдите канал по имени: {KNOWLEDGE_CHANNEL_ID}"
-            else:
-                channel_info = f"\n\n💡 Если кнопка не работает, обратитесь к администратору"
             
             await query.edit_message_text(
                 f"📚 Наш канал с базой знаний:\n\n"
@@ -168,7 +160,10 @@ class TradingBot:
                 f"• Полезные статьи и гайды\n"
                 f"• Новости законодательства\n"
                 f"• Примеры успешных торгов\n\n"
-                f"Нажмите кнопку ниже, чтобы перейти в канал:{channel_info}",
+                f"📱 На мобильных устройствах:\n"
+                f"• Первая кнопка - откроет в браузере\n"
+                f"• Вторая кнопка - откроет в приложении Telegram\n\n"
+                f"💡 Если кнопки не работают, найдите канал по ID: {KNOWLEDGE_CHANNEL_ID}",
                 reply_markup=reply_markup
             )
             
