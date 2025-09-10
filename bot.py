@@ -144,10 +144,10 @@ class TradingBot:
                 # Ждем немного для отображения сообщения
                 await asyncio.sleep(1)
                 
-                # Используем тот же подход, что и в другом боте
-                # Отправляем пользователя прямо в канал по ID
-                # Для канала с ID -1002574409421 правильный формат: tg://resolve?domain=-1002574409421
-                channel_url = f"tg://resolve?domain={KNOWLEDGE_CHANNEL_ID}"
+                # Используем правильный формат для ID канала
+                # Для канала с ID -1002574409421 правильный формат: https://t.me/c/2574409421
+                channel_id = KNOWLEDGE_CHANNEL_ID[4:]  # Убираем -100
+                channel_url = f"https://t.me/c/{channel_id}"
                 
                 # Отправляем сообщение с кнопкой для перехода в канал
                 await context.bot.send_message(
